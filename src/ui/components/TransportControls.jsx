@@ -13,6 +13,7 @@ export function TransportControls({
   loop,
   loopDisabled,
   muted,
+  muteDisabled = false,
   onPlayPause,
   onSeek,
   onToggleLoop,
@@ -77,6 +78,7 @@ export function TransportControls({
       </button>
       <button
         type="button"
+        disabled={muteDisabled}
         aria-pressed={muted}
         onClick={onToggleMute}
       >

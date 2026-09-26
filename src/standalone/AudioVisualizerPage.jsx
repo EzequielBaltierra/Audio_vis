@@ -78,7 +78,7 @@ export function AudioVisualizerPage() {
     value: 0,
   })
   const [draggingFile, setDraggingFile] = useState(false)
-  const { loadDemo, loadFile, source } = audio
+  const { loadDemo, loadFile, loadMicrophone, source } = audio
 
   const resetForSource = useCallback(() => {
     setRendererId('')
@@ -102,6 +102,11 @@ export function AudioVisualizerPage() {
     [loadDemo, resetCaptureForSource, resetForSource],
   )
 
+  const handleMicrophone = useCallback(async () => {
+    resetCaptureForSource()
+    if (await loadMicrophone()) resetForSource()
+  }, [loadMicrophone, resetCaptureForSource, resetForSource])
+
   const selectRenderer = (nextRendererId) => {
     const definition = getRendererDefinition(nextRendererId)
     setRendererId(nextRendererId)
@@ -117,6 +122,7 @@ export function AudioVisualizerPage() {
 
   const rendererDefinition = rendererId ? getRendererDefinition(rendererId) : null
   const hasSource = Boolean(source)
+  const microphoneActive = source?.kind === 'microphone'
 
   const activeTransport = reviewUrl
     ? {
@@ -134,12 +140,13 @@ export function AudioVisualizerPage() {
       }
     : {
         currentTime: audio.currentTime,
-        disabled: !source || audio.status === 'loading' || captureActive,
+        disabled: !source || microphoneActive || audio.status === 'loading' || captureActive,
         duration: audio.duration,
         isPlaying: audio.isPlaying,
         loop: loopPlayback,
-        loopDisabled: captureActive,
+        loopDisabled: captureActive || microphoneActive,
         muted: audioMuted,
+        muteDisabled: microphoneActive,
         onPlayPause: audio.togglePlayback,
         onSeek: audio.seek,
         onToggleLoop: () => setLoopPlayback((current) => !current),
@@ -179,6 +186,7 @@ export function AudioVisualizerPage() {
               disabled={captureActive}
                 onFile={handleFile}
                 onDemo={handleDemo}
+                onMicrophone={handleMicrophone}
               />
             </section>
 
@@ -323,7 +331,7 @@ export function AudioVisualizerPage() {
                   <button
                     className={captureActive ? 'is-active' : ''}
                     type="button"
-                    disabled={!source || !rendererDefinition}
+                    disabled={!source || !rendererDefinition || microphoneActive}
                     onClick={() => {
                       if (captureActive) {
                         stopCapture({ discard: capturePhase === 'preparing' })

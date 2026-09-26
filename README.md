@@ -1,13 +1,14 @@
 # AUDIO_VIS
 
-A client-side audio visualizer for local WAV and MP3 files. It uses the Web
-Audio API for analysis, renders to canvas, and can record the visualization
-with audio as WebM or MP4 when the browser supports the selected format. Local
-files remain on the device.
+A client-side audio visualizer for local WAV and MP3 files or live microphone
+input. It uses the Web Audio API for analysis, renders to canvas, and can record
+file/demo visualizations with audio as WebM or MP4 when the browser supports the
+selected format. Local files remain on the device, and microphone input is never
+routed back to the speakers.
 
 ## Current features
 
-- Local audio files and bundled demo tracks
+- Local audio files, bundled demo tracks, and unmonitored microphone input
 - Configurable bar visualization, FFT analysis, and visual EQ
 - Playback, seeking, looping, and mute controls
 - Configurable recording resolution, frame rate, and output format

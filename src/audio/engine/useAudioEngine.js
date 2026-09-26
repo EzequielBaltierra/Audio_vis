@@ -8,7 +8,12 @@ import {
   decibelsToGain,
   normalizeVisualEqParameters,
 } from '../analysis/visualEqParameters.js'
-import { isSupportedAudioFile } from './audioSource.js'
+import {
+  getMicrophoneErrorMessage,
+  getSourceRouting,
+  isSupportedAudioFile,
+  MICROPHONE_SOURCE,
+} from './audioSource.js'
 
 export function useAudioEngine({
   analysisParameters = DEFAULT_ANALYSIS_PARAMETERS,
@@ -23,7 +28,9 @@ export function useAudioEngine({
   const playbackGainRef = useRef(null)
   const visualEqNodesRef = useRef(null)
   const mediaElementSourceRef = useRef(null)
+  const microphoneStreamRef = useRef(null)
   const activeSourceNodeRef = useRef(null)
+  const sourceRequestIdRef = useRef(0)
   const analysisParametersRef = useRef(normalizeAnalysisParameters(analysisParameters))
   const visualEqParametersRef = useRef(normalizeVisualEqParameters(visualEqParameters))
   const mutedRef = useRef(Boolean(muted))
@@ -79,12 +86,18 @@ export function useAudioEngine({
     return nextAnalyser
   }, [])
 
-  const connectSourceNode = useCallback((node, { playback }) => {
+  const connectSourceNode = useCallback((node, { playback, recording = true }) => {
     activeSourceNodeRef.current?.disconnect()
     activeSourceNodeRef.current = node
     if (playback) node.connect(playbackGainRef.current)
-    node.connect(recordingDestinationRef.current)
+    if (recording) node.connect(recordingDestinationRef.current)
     node.connect(visualEqNodesRef.current.analysisGain)
+  }, [])
+
+  const stopMicrophone = useCallback(() => {
+    const stream = microphoneStreamRef.current
+    microphoneStreamRef.current = null
+    stream?.getTracks().forEach((track) => track.stop())
   }, [])
 
   const connectMediaElement = useCallback(() => {
@@ -92,7 +105,7 @@ export function useAudioEngine({
     if (!mediaElementSourceRef.current) {
       mediaElementSourceRef.current = contextRef.current.createMediaElementSource(audioRef.current)
     }
-    connectSourceNode(mediaElementSourceRef.current, { playback: true })
+    connectSourceNode(mediaElementSourceRef.current, getSourceRouting('media'))
   }, [connectSourceNode, ensureAudioGraph])
 
   useEffect(() => {
@@ -175,19 +188,22 @@ export function useAudioEngine({
   useEffect(
     () => () => {
       audioRef.current?.pause()
+      stopMicrophone()
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
       contextRef.current?.close()
     },
-    [],
+    [stopMicrophone],
   )
 
   const loadMediaSource = useCallback(
     async (url, nextSource) => {
+      sourceRequestIdRef.current += 1
       setError('')
       const audio = audioRef.current
       if (!audio) return false
 
       audio.pause()
+      stopMicrophone()
       if (objectUrlRef.current && objectUrlRef.current !== url) {
         URL.revokeObjectURL(objectUrlRef.current)
         objectUrlRef.current = null
@@ -211,7 +227,7 @@ export function useAudioEngine({
         return false
       }
     },
-    [connectMediaElement],
+    [connectMediaElement, stopMicrophone],
   )
 
   const loadFile = useCallback(
@@ -249,8 +265,77 @@ export function useAudioEngine({
     [loadMediaSource],
   )
 
+  const loadMicrophone = useCallback(async () => {
+    const requestId = sourceRequestIdRef.current + 1
+    sourceRequestIdRef.current = requestId
+    setError('')
+    setStatus('loading')
+
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setError('Microphone input requires a secure browser with media-device support.')
+      setStatus('error')
+      return false
+    }
+
+    let stream
+    try {
+      ensureAudioGraph()
+      await contextRef.current.resume()
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: false,
+          echoCancellation: false,
+          noiseSuppression: false,
+        },
+        video: false,
+      })
+
+      if (sourceRequestIdRef.current !== requestId) {
+        stream.getTracks().forEach((track) => track.stop())
+        return false
+      }
+
+      const audio = audioRef.current
+      audio?.pause()
+      if (audio) {
+        audio.removeAttribute('src')
+        audio.load()
+      }
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+      stopMicrophone()
+
+      const microphoneNode = contextRef.current.createMediaStreamSource(stream)
+      microphoneStreamRef.current = stream
+      connectSourceNode(microphoneNode, getSourceRouting('microphone'))
+      stream.getAudioTracks().forEach((track) => {
+        track.addEventListener('ended', () => {
+          if (microphoneStreamRef.current !== stream) return
+          microphoneStreamRef.current = null
+          setIsPlaying(false)
+          setStatus('ended')
+          setError('Microphone input ended. Select microphone to reconnect.')
+        }, { once: true })
+      })
+      setCurrentTime(0)
+      setDuration(0)
+      setIsPlaying(true)
+      setSource(MICROPHONE_SOURCE)
+      setStatus('live')
+      return true
+    } catch (microphoneError) {
+      stream?.getTracks().forEach((track) => track.stop())
+      if (sourceRequestIdRef.current !== requestId) return false
+      setError(getMicrophoneErrorMessage(microphoneError))
+      setStatus('error')
+      return false
+    }
+  }, [connectSourceNode, ensureAudioGraph, stopMicrophone])
+
   const preparePlayback = useCallback(async ({ signal } = {}) => {
-    if (!source || !audioRef.current) return false
+    if (!source || source.kind === 'microphone' || !audioRef.current) return false
 
     try {
       if (signal?.aborted) return false
@@ -275,7 +360,7 @@ export function useAudioEngine({
   }, [connectMediaElement, source])
 
   const togglePlayback = useCallback(async () => {
-    if (!source) return
+    if (!source || source.kind === 'microphone') return
 
     try {
       connectMediaElement()
@@ -293,7 +378,7 @@ export function useAudioEngine({
   }, [connectMediaElement, source])
 
   const playFromStart = useCallback(async ({ useLoop = true } = {}) => {
-    if (!source || !audioRef.current) return
+    if (!source || source.kind === 'microphone' || !audioRef.current) return
 
     try {
       connectMediaElement()
@@ -317,14 +402,15 @@ export function useAudioEngine({
   }, [])
 
   const pausePlayback = useCallback(() => {
+    if (source?.kind === 'microphone') return
     audioRef.current?.pause()
-  }, [])
+  }, [source])
 
   const seek = useCallback((timeSeconds) => {
-    if (!audioRef.current || !Number.isFinite(timeSeconds)) return
+    if (source?.kind === 'microphone' || !audioRef.current || !Number.isFinite(timeSeconds)) return
     audioRef.current.currentTime = timeSeconds
     setCurrentTime(timeSeconds)
-  }, [])
+  }, [source])
 
   const getCurrentTime = useCallback(() => audioRef.current?.currentTime ?? 0, [])
   const getRecordingStream = useCallback(
@@ -342,6 +428,7 @@ export function useAudioEngine({
     isPlaying,
     loadDemo,
     loadFile,
+    loadMicrophone,
     pausePlayback,
     playFromStart,
     preparePlayback,

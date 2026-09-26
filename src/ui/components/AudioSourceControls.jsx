@@ -22,6 +22,7 @@ export function AudioSourceControls({
   disabled,
   onFile,
   onDemo,
+  onMicrophone,
 }) {
   const inputRef = useRef(null)
   const [demoOpen, setDemoOpen] = useState(false)
@@ -50,6 +51,15 @@ export function AudioSourceControls({
           onClick={() => setDemoOpen((current) => !current)}
         >
           [ DEMO ]
+        </button>
+        <button
+          className={`source-action ${source?.kind === 'microphone' ? 'is-selected' : ''}`}
+          type="button"
+          disabled={disabled || status === 'loading'}
+          aria-pressed={source?.kind === 'microphone'}
+          onClick={onMicrophone}
+        >
+          [ MICROPHONE ]
         </button>
       </div>
 

@@ -119,7 +119,8 @@
 
 .source-action:hover:not(:disabled),
 .source-action:focus-visible:not(:disabled),
-.source-action.is-dragging {
+.source-action.is-dragging,
+.source-action.is-selected {
   color: var(--signal);
 }
 
