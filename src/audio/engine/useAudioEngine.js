@@ -5,8 +5,8 @@ import {
 } from '../analysis/analysisParameters.js'
 import {
   DEFAULT_VISUAL_EQ_PARAMETERS,
-  decibelsToGain,
   normalizeVisualEqParameters,
+  VISUAL_EQ_BANDS,
 } from '../analysis/visualEqParameters.js'
 import {
   getMicrophoneErrorMessage,
@@ -56,23 +56,21 @@ export function useAudioEngine({
     const nextAnalyser = context.createAnalyser()
     const recordingDestination = context.createMediaStreamDestination()
     const playbackGain = context.createGain()
-    const analysisGain = context.createGain()
-    const lowShelf = context.createBiquadFilter()
-    const highShelf = context.createBiquadFilter()
+    const visualEqNodes = VISUAL_EQ_BANDS.map(() => context.createBiquadFilter())
     const silentSink = context.createGain()
 
     configureAnalyser(nextAnalyser, analysisParametersRef.current)
     configureVisualEq(
-      { analysisGain, lowShelf, highShelf },
+      visualEqNodes,
       visualEqParametersRef.current,
       context.sampleRate,
     )
 
     playbackGain.gain.value = mutedRef.current ? 0 : 1
     playbackGain.connect(context.destination)
-    analysisGain.connect(lowShelf)
-    lowShelf.connect(highShelf)
-    highShelf.connect(nextAnalyser)
+    visualEqNodes.forEach((equalizerNode, index) => {
+      equalizerNode.connect(visualEqNodes[index + 1] ?? nextAnalyser)
+    })
     nextAnalyser.connect(silentSink)
     silentSink.gain.value = 0
     silentSink.connect(context.destination)
@@ -81,7 +79,7 @@ export function useAudioEngine({
     analyserRef.current = nextAnalyser
     recordingDestinationRef.current = recordingDestination
     playbackGainRef.current = playbackGain
-    visualEqNodesRef.current = { analysisGain, lowShelf, highShelf }
+    visualEqNodesRef.current = visualEqNodes
     setAnalyser(nextAnalyser)
     return nextAnalyser
   }, [])
@@ -91,7 +89,7 @@ export function useAudioEngine({
     activeSourceNodeRef.current = node
     if (playback) node.connect(playbackGainRef.current)
     if (recording) node.connect(recordingDestinationRef.current)
-    node.connect(visualEqNodesRef.current.analysisGain)
+    node.connect(visualEqNodesRef.current[0])
   }, [])
 
   const stopMicrophone = useCallback(() => {
@@ -486,13 +484,13 @@ function configureAnalyser(analyser, parameters) {
   analyser.smoothingTimeConstant = parameters.smoothingTimeConstant
 }
 
-function configureVisualEq(nodes, parameters, sampleRate) {
+export function configureVisualEq(nodes, parameters, sampleRate) {
   const nyquist = sampleRate / 2
-  nodes.analysisGain.gain.value = decibelsToGain(parameters.inputGainDb)
-  nodes.lowShelf.type = 'lowshelf'
-  nodes.lowShelf.frequency.value = Math.min(nyquist, parameters.lowShelfFrequencyHz)
-  nodes.lowShelf.gain.value = parameters.lowShelfGainDb
-  nodes.highShelf.type = 'highshelf'
-  nodes.highShelf.frequency.value = Math.min(nyquist, parameters.highShelfFrequencyHz)
-  nodes.highShelf.gain.value = parameters.highShelfGainDb
+  VISUAL_EQ_BANDS.forEach((band, index) => {
+    const equalizerNode = nodes[index]
+    equalizerNode.type = 'peaking'
+    equalizerNode.frequency.value = Math.min(nyquist, band.frequencyHz)
+    equalizerNode.Q.value = 1
+    equalizerNode.gain.value = parameters[band.id]
+  })
 }

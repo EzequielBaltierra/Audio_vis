@@ -36,18 +36,20 @@ export function AudioSourceControls({
     <div className="audio-source-controls">
       <div className="source-actions" aria-label="Audio source options">
         <button
-          className={`source-action ${dragging ? 'is-dragging' : ''}`}
+          className={`source-action ${dragging ? 'is-dragging' : ''} ${source?.kind === 'file' ? 'is-selected' : ''}`}
           type="button"
           disabled={disabled}
+          aria-pressed={source?.kind === 'file'}
           onClick={() => inputRef.current?.click()}
         >
           {dragging ? '[ DROP WAV / MP3 ]' : '[ OPEN WAV / MP3 ]'}
         </button>
         <button
-          className="source-action"
+          className={`source-action ${source?.kind === 'demo' ? 'is-selected' : ''}`}
           type="button"
           disabled={disabled}
           aria-expanded={demoOpen}
+          aria-pressed={source?.kind === 'demo'}
           onClick={() => setDemoOpen((current) => !current)}
         >
           [ DEMO ]

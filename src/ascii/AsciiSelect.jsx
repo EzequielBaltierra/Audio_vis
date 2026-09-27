@@ -9,6 +9,7 @@ export function AsciiSelect({
   disabled = false,
   placeholder = 'SELECT',
   hint,
+  showDisclosure = false,
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const selectedIndex = options.findIndex((option) => option.value === value)
@@ -46,7 +47,12 @@ export function AsciiSelect({
         title={hint}
         onClick={() => setOpen((current) => !current)}
       >
-        <span>{label}</span>
+        <span className="ascii-select__header-label">
+          {showDisclosure
+            ? <span aria-hidden="true">{open ? '[-]' : '[+]'}</span>
+            : null}
+          <span>{label}</span>
+        </span>
         {!open ? <span className="ascii-select__value">{selected?.label ?? placeholder}</span> : null}
       </button>
       {open ? (

@@ -21,6 +21,7 @@ import { AudioSourceControls } from '../ui/components/AudioSourceControls.jsx'
 import { CollapsibleParameterGroup } from '../ui/components/CollapsibleParameterGroup.jsx'
 import { ParameterControls } from '../ui/components/ParameterControls.jsx'
 import { TransportControls } from '../ui/components/TransportControls.jsx'
+import { VisualEqControls } from '../ui/components/VisualEqControls.jsx'
 import { PathfinderBackground } from '../ui/layout/PathfinderBackground.jsx'
 import { VisualizationCanvas } from '../visualization/engine/VisualizationCanvas.jsx'
 import {
@@ -199,6 +200,7 @@ export function AudioVisualizerPage() {
                   value={rendererId}
                   options={RENDERER_OPTIONS}
                   placeholder="SELECT RENDERER"
+                  showDisclosure
                   disabled={captureActive}
                   onChange={selectRenderer}
                 />
@@ -229,7 +231,7 @@ export function AudioVisualizerPage() {
                   label="VISUAL EQ"
                   ariaLabel="Visual EQ parameters"
                 >
-                  <ParameterControls
+                  <VisualEqControls
                     definitions={VISUAL_EQ_PARAMETER_DEFINITIONS}
                     values={visualEqParameters}
                     disabled={captureActive}

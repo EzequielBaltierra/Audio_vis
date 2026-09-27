@@ -1,6 +1,5 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { decibelsToGain } from '../src/audio/analysis/visualEqParameters.js'
 import {
   OUTPUT_FORMATS,
   findSupportedOutputMimeType,
@@ -72,11 +71,6 @@ test('bar spacing controls follow the peak-hold controls', () => {
       'minimumBarHeightPx',
     ],
   )
-})
-
-test('visual EQ input gain uses the decibel amplitude formula', () => {
-  assert.equal(decibelsToGain(0), 1)
-  assert.ok(Math.abs(decibelsToGain(6) - 1.9952623149688795) < Number.EPSILON)
 })
 
 test('WebM and MP4 output formats use only browser-supported MIME types', () => {

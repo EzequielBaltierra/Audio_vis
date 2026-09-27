@@ -3,6 +3,7 @@ import {
   findSupportedOutputMimeType,
   OUTPUT_FORMATS,
 } from './outputParameters.js'
+import { buildDownloadName } from './downloadName.js'
 
 export function useCaptureWorkflow({ audio, rendererId, outputParameters, exportCanvasRef }) {
   const captureAttemptRef = useRef(null)
@@ -233,10 +234,13 @@ export function useCaptureWorkflow({ audio, rendererId, outputParameters, export
 
   const downloadReview = useCallback(() => {
     if (!reviewUrl || !source) return
-    const baseName = source.fileName.replace(/\.(wav|mp3)$/i, '')
     const anchor = document.createElement('a')
     anchor.href = reviewUrl
-    anchor.download = `${baseName}-${rendererId}.${OUTPUT_FORMATS[outputParameters.format].extension}`
+    anchor.download = buildDownloadName(
+      source.fileName,
+      rendererId,
+      OUTPUT_FORMATS[outputParameters.format].extension,
+    )
     anchor.click()
   }, [outputParameters.format, rendererId, reviewUrl, source])
 
