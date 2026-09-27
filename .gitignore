@@ -18,6 +18,10 @@ dist-ssr
 !.env.example
 coverage
 
+# Local project context (not published)
+docs/architecture.md
+docs/style-guide.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
