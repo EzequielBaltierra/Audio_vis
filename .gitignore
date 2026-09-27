@@ -18,9 +18,22 @@ dist-ssr
 !.env.example
 coverage
 
-# Local project context (not published)
+# Local project and AI context (not published)
 docs/architecture.md
+docs/roadmap.md
 docs/style-guide.md
+AGENTS.md
+CLAUDE.md
+CODEX.md
+GEMINI.md
+CONTEXT.md
+MEMORY.md
+.agent/
+.agents/
+.ai/
+.claude/
+.codex/
+.github/copilot-instructions.md
 
 # Editor directories and files
 .vscode/*
