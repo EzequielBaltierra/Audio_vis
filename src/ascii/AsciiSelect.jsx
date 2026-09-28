@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 export function AsciiSelect({
   label,
@@ -12,8 +12,10 @@ export function AsciiSelect({
   showDisclosure = false,
 }) {
   const [open, setOpen] = useState(defaultOpen)
+  const selectId = useId()
   const selectedIndex = options.findIndex((option) => option.value === value)
   const selected = selectedIndex >= 0 ? options[selectedIndex] : null
+  const selectedOptionId = selected ? `${selectId}-option-${selectedIndex}` : undefined
 
   const move = (offset) => {
     if (disabled) return
@@ -62,14 +64,14 @@ export function AsciiSelect({
           tabIndex={disabled ? -1 : 0}
           aria-label={label}
           aria-disabled={disabled}
-          aria-activedescendant={selected ? `${label}-${selected.value}` : undefined}
+          aria-activedescendant={selectedOptionId}
           onKeyDown={handleKeyDown}
         >
-          {options.map((option) => {
+          {options.map((option, optionIndex) => {
             const active = option.value === value
             return (
               <button
-                id={`${label}-${option.value}`}
+                id={`${selectId}-option-${optionIndex}`}
                 className={`ascii-select__option ${active ? 'is-selected' : ''}`}
                 type="button"
                 role="option"

@@ -1,8 +1,11 @@
 import { createBarRenderer } from '../renderers/bar/barRenderer.js'
+import { createSineRenderer } from '../renderers/sine/sineRenderer.js'
+import { COLOR_PARAMETER_DEFINITIONS } from '../color/colorParameters.js'
 import {
-  BAR_PARAMETER_DEFINITIONS,
-  DEFAULT_BAR_PARAMETERS,
-} from '../renderers/bar/barParameters.js'
+  SINE_PARAMETER_DEFINITIONS,
+  DEFAULT_SINE_PARAMETERS,
+} from '../renderers/sine/sineParameters.js'
+import { BAR_PARAMETER_DEFINITIONS, DEFAULT_BAR_PARAMETERS } from '../renderers/bar/barParameters.js'
 
 export const RENDERER_CATALOG = Object.freeze([
   {
@@ -11,8 +14,19 @@ export const RENDERER_CATALOG = Object.freeze([
     status: 'available',
     input: 'frequencyBands',
     parameterDefinitions: BAR_PARAMETER_DEFINITIONS,
+    colorParameterDefinitions: COLOR_PARAMETER_DEFINITIONS,
     defaultParameters: DEFAULT_BAR_PARAMETERS,
     create: createBarRenderer,
+  },
+  {
+    id: 'sine',
+    label: 'SINE WAVE',
+    status: 'available',
+    input: 'frequencyBands',
+    parameterDefinitions: SINE_PARAMETER_DEFINITIONS,
+    colorParameterDefinitions: COLOR_PARAMETER_DEFINITIONS,
+    defaultParameters: DEFAULT_SINE_PARAMETERS,
+    create: createSineRenderer,
   },
   {
     id: 'radial',

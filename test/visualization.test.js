@@ -12,6 +12,7 @@ import {
 import { createBarRenderer } from '../src/visualization/renderers/bar/barRenderer.js'
 import {
   BAR_COLOR_PALETTE,
+  BAR_COLOR_PARAMETER_DEFINITIONS,
   BAR_FREQUENCY_COLOR_PALETTES,
   BAR_PARAMETER_DEFINITIONS,
   DEFAULT_BAR_PARAMETERS,
@@ -20,11 +21,13 @@ import {
 test('renderer catalog separates implemented and planned renderers', () => {
   assert.deepEqual(RENDERER_CATALOG.map(({ id }) => id), [
     'bar',
+    'sine',
     'radial',
     'oscilloscope',
     'spectrogram',
   ])
-  assert.deepEqual(listAvailableRenderers().map(({ id }) => id), ['bar'])
+  assert.deepEqual(listAvailableRenderers().map(({ id }) => id), ['bar', 'sine'])
+  assert.equal(getRendererDefinition('sine').input, 'frequencyBands')
   assert.equal(getRendererDefinition('bar').input, 'frequencyBands')
   assert.throws(() => getRendererDefinition('radial'), /not available/)
 })
@@ -36,8 +39,23 @@ test('bar renderer defaults to square edges', () => {
   assert.equal(DEFAULT_BAR_PARAMETERS.peakHold, false)
   assert.equal(DEFAULT_BAR_PARAMETERS.peakHoldDurationMs, 500)
   assert.equal(DEFAULT_BAR_PARAMETERS.peakDecayPerSecond, 0.75)
-  assert.equal(DEFAULT_BAR_PARAMETERS.frequencyColorGradient, false)
+  assert.equal(DEFAULT_BAR_PARAMETERS.colorMode, 'solid')
   assert.equal(DEFAULT_BAR_PARAMETERS.frequencyColorPalette, 'warm')
+  assert.equal(DEFAULT_BAR_PARAMETERS.showFrequencyRuler, false)
+})
+
+test('bar color controls separate solid and frequency modes', () => {
+  assert.deepEqual(BAR_COLOR_PARAMETER_DEFINITIONS.map(({ id }) => id), [
+    'colorMode',
+    'color',
+    'frequencyColorPalette',
+  ])
+  assert.deepEqual(
+    BAR_COLOR_PARAMETER_DEFINITIONS[0].values,
+    ['solid', 'frequency'],
+  )
+  assert.equal(getRendererDefinition('bar').colorParameterDefinitions, BAR_COLOR_PARAMETER_DEFINITIONS)
+  assert.equal(getRendererDefinition('sine').colorParameterDefinitions, BAR_COLOR_PARAMETER_DEFINITIONS)
 })
 
 test('frequency palettes define low, middle, and high colors', () => {
@@ -232,7 +250,7 @@ test('frequency color gradient maps the first, middle, and last buckets to the p
     viewport: { width: 60, height: 100 },
     parameters: {
       ...DEFAULT_BAR_PARAMETERS,
-      frequencyColorGradient: true,
+      colorMode: 'frequency',
       frequencyColorPalette: 'cool',
       gapRatio: 0,
     },
@@ -258,7 +276,7 @@ test('user-defined frequency gradient uses all three custom colors', () => {
     viewport: { width: 60, height: 100 },
     parameters: {
       ...DEFAULT_BAR_PARAMETERS,
-      frequencyColorGradient: true,
+      colorMode: 'frequency',
       frequencyColorPalette: 'custom',
       frequencyColorLow: '#112233',
       frequencyColorMid: '#445566',

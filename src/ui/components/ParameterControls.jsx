@@ -8,7 +8,11 @@ export function ParameterControls({ definitions, values, disabled = false, onCha
     const visibilityConditions = Array.isArray(definition.visibleWhen)
       ? definition.visibleWhen
       : definition.visibleWhen ? [definition.visibleWhen] : []
-    if (visibilityConditions.some(({ id, equals }) => values[id] !== equals)) return null
+    const hidden = visibilityConditions.some((condition) => {
+      if ('notEquals' in condition) return values[condition.id] === condition.notEquals
+      return values[condition.id] !== condition.equals
+    })
+    if (hidden) return null
 
     if (definition.type === 'boolean') {
       return (
@@ -17,6 +21,7 @@ export function ParameterControls({ definitions, values, disabled = false, onCha
           label={definition.label}
           checked={values[definition.id]}
           hint={definition.affects}
+          indented={definition.indented}
           disabled={disabled}
           onChange={(value) => onChange(definition.id, value)}
         />
@@ -39,7 +44,10 @@ export function ParameterControls({ definitions, values, disabled = false, onCha
 
     if (definition.type === 'enum') {
       return (
-        <div className="parameter-control" key={definition.id}>
+        <div
+          className={`parameter-control ${definition.indented ? 'parameter-control--indented' : ''}`}
+          key={definition.id}
+        >
           <AsciiSelect
             label={definition.label}
             value={values[definition.id]}
@@ -109,7 +117,10 @@ function NumberParameterControl({ definition, value, disabled, onChange }) {
   }
 
   return (
-    <div className="step-control" title={definition.affects}>
+    <div
+      className={`step-control ${definition.indented ? 'parameter-control--indented' : ''}`}
+      title={definition.affects}
+    >
       <span>{definition.label}</span>
       <span className="step-control__actions">
         <button

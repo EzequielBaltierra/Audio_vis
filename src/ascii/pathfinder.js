@@ -41,6 +41,50 @@ export function createPathfinderGrid(columns, rows, random = Math.random, densit
   return grid
 }
 
+export function resizePathfinderGrid(
+  grid,
+  previousColumns,
+  previousRows,
+  nextColumns,
+  nextRows,
+  random = Math.random,
+  density = 0.001,
+) {
+  const resizedGrid = Array.from({ length: nextColumns * nextRows }, () => ' ')
+  const copiedColumns = Math.min(previousColumns, nextColumns)
+  const copiedRows = Math.min(previousRows, nextRows)
+
+  for (let y = 0; y < copiedRows; y += 1) {
+    for (let x = 0; x < copiedColumns; x += 1) {
+      resizedGrid[y * nextColumns + x] = grid[y * previousColumns + x]
+    }
+  }
+
+  const newCellIndexes = []
+  for (let y = 0; y < nextRows; y += 1) {
+    for (let x = 0; x < nextColumns; x += 1) {
+      if (x >= previousColumns || y >= previousRows) {
+        newCellIndexes.push(y * nextColumns + x)
+      }
+    }
+  }
+
+  const seedCount = density > 0
+    ? Math.min(newCellIndexes.length, Math.max(1, Math.round(newCellIndexes.length * density)))
+    : 0
+  const availableIndexes = [...newCellIndexes]
+  for (let seed = 0; seed < seedCount; seed += 1) {
+    const choiceIndex = Math.min(
+      availableIndexes.length - 1,
+      Math.floor(random() * availableIndexes.length),
+    )
+    const [gridIndex] = availableIndexes.splice(choiceIndex, 1)
+    resizedGrid[gridIndex] = choose(PATH_GLYPHS, random)
+  }
+
+  return resizedGrid
+}
+
 export function growPathfinderGrid(
   grid,
   columns,

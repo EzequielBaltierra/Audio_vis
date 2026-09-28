@@ -1,12 +1,21 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import emptyBoxIcon from '../../assets/EmptyBox.png'
-import selectedColorIcon from '../../assets/SelectedColor.png'
 import selectedOptionIcon from '../../assets/Selectedoption.png'
+import { hexToHsl, hslToHex, normalizeHexColor } from '../colorValues.js'
+import { ColorPickerMenu } from './ColorPickerMenu.jsx'
+import { ColorSwatchIcon } from './ColorSwatchIcon.jsx'
 
-export function BooleanOptionControl({ label, checked, hint, disabled = false, onChange }) {
+export function BooleanOptionControl({
+  label,
+  checked,
+  hint,
+  indented = false,
+  disabled = false,
+  onChange,
+}) {
   return (
     <button
-      className="icon-option-control"
+      className={`icon-option-control ${indented ? 'parameter-control--indented' : ''}`}
       type="button"
       role="checkbox"
       aria-checked={checked}
@@ -35,14 +44,27 @@ export function PaletteColorControl({
   disabled = false,
   onChange,
 }) {
+  const pickerId = useId()
   const [draft, setDraft] = useState(value.toUpperCase())
   const [editing, setEditing] = useState(false)
+  const [customOpen, setCustomOpen] = useState(false)
+  const [customHsl, setCustomHsl] = useState(() => hexToHsl(value))
+  const customSelected = !palette.some((color) => color.toUpperCase() === value.toUpperCase())
 
   const updateDraft = (nextDraft) => {
     if (!/^#?[0-9a-f]*$/i.test(nextDraft) || nextDraft.replace('#', '').length > 6) return
     setDraft(nextDraft.toUpperCase())
     const normalized = normalizeHexColor(nextDraft)
-    if (normalized) onChange(normalized)
+    if (normalized) {
+      setCustomHsl(hexToHsl(normalized))
+      onChange(normalized)
+    }
+  }
+
+  const openCustomPicker = () => {
+    setEditing(false)
+    setCustomHsl(hexToHsl(value))
+    setCustomOpen((current) => !current)
   }
 
   return (
@@ -79,31 +101,49 @@ export function PaletteColorControl({
               key={normalizedColor}
               onClick={() => {
                 setEditing(false)
+                setCustomOpen(false)
+                setDraft(normalizedColor)
+                setCustomHsl(hexToHsl(normalizedColor))
                 onChange(normalizedColor)
               }}
             >
-              <span className="option-icon" aria-hidden="true">
-                <span
-                  className={selected
-                    ? 'option-icon__fill option-icon__fill--selected'
-                    : 'option-icon__fill option-icon__fill--empty'}
-                  style={{ backgroundColor: normalizedColor }}
-                />
-                <img
-                  className={selected ? 'option-icon__selected-color' : 'option-icon__empty'}
-                  src={selected ? selectedColorIcon : emptyBoxIcon}
-                  alt=""
-                />
-              </span>
+              <ColorSwatchIcon color={normalizedColor} selected={selected} />
             </button>
           )
         })}
+        <button
+          className="palette-option palette-option--custom"
+          type="button"
+          role="option"
+          aria-label="Custom color"
+          aria-selected={customSelected}
+          aria-expanded={customOpen}
+          aria-controls={`${pickerId}-menu`}
+          disabled={disabled}
+          onClick={openCustomPicker}
+        >
+          <ColorSwatchIcon
+            color={customSelected ? value : null}
+            selected={customSelected}
+          />
+        </button>
       </div>
+      {customOpen ? (
+        <ColorPickerMenu
+          id={`${pickerId}-menu`}
+          label={`${label} custom color picker`}
+          value={value}
+          hsl={customHsl}
+          disabled={disabled}
+          onChange={(nextHsl) => {
+            setCustomHsl(nextHsl)
+            const nextColor = hslToHex(nextHsl.hue, nextHsl.saturation, nextHsl.lightness)
+            setDraft(nextColor)
+            onChange(nextColor)
+          }}
+          onClose={() => setCustomOpen(false)}
+        />
+      ) : null}
     </div>
   )
-}
-
-function normalizeHexColor(value) {
-  const digits = value.replace('#', '')
-  return /^[0-9a-f]{6}$/i.test(digits) ? `#${digits.toUpperCase()}` : null
 }

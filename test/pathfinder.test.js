@@ -5,6 +5,7 @@ import {
   createPathfinderGrid,
   formatPathfinderGrid,
   growPathfinderGrid,
+  resizePathfinderGrid,
 } from '../src/ascii/pathfinder.js'
 
 test('pathfinder seeding always creates the requested minimum without hanging', () => {
@@ -45,4 +46,27 @@ test('formatted pathfinder rows contain no trailing spaces', () => {
   const output = formatPathfinderGrid(['┃', ' ', ' ', ' ', '━', ' '], 3, 2)
   assert.equal(output, '┃\n ━')
   assert.ok(output.split('\n').every((line) => !line.endsWith(' ')))
+})
+
+test('pathfinder resizing preserves overlapping cells and trims clipped cells', () => {
+  const original = ['A', 'B', 'C', 'D', 'E', 'F']
+  const expanded = resizePathfinderGrid(original, 3, 2, 4, 3, () => 0, 0)
+  assert.deepEqual(expanded, [
+    'A', 'B', 'C', ' ',
+    'D', 'E', 'F', ' ',
+    ' ', ' ', ' ', ' ',
+  ])
+  assert.deepEqual(resizePathfinderGrid(expanded, 4, 3, 2, 2, () => 0, 0), [
+    'A', 'B',
+    'D', 'E',
+  ])
+})
+
+test('pathfinder resizing seeds only newly exposed cells', () => {
+  const original = ['A', 'B', 'C', 'D']
+  const expanded = resizePathfinderGrid(original, 2, 2, 3, 2, () => 0, 1)
+  assert.deepEqual(expanded.slice(0, 2), ['A', 'B'])
+  assert.deepEqual(expanded.slice(3, 5), ['C', 'D'])
+  assert.ok(PATH_GLYPHS.includes(expanded[2]))
+  assert.ok(PATH_GLYPHS.includes(expanded[5]))
 })

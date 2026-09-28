@@ -1,5 +1,13 @@
+import {
+  COLOR_PARAMETER_DEFINITIONS,
+  DEFAULT_COLOR_PARAMETERS,
+  FREQUENCY_COLOR_PALETTES,
+  VISUALIZATION_COLOR_PALETTE,
+} from '../../color/colorParameters.js'
+
 export const DEFAULT_BAR_PARAMETERS = Object.freeze({
-  color: '#3ab246',
+  ...DEFAULT_COLOR_PARAMETERS,
+  showFrequencyRuler: false,
   gapRatio: 0.12,
   minimumBarHeightPx: 1,
   symmetry: false,
@@ -9,91 +17,20 @@ export const DEFAULT_BAR_PARAMETERS = Object.freeze({
   peakHold: false,
   peakHoldDurationMs: 500,
   peakDecayPerSecond: 0.75,
-  frequencyColorGradient: false,
-  frequencyColorPalette: 'warm',
-  frequencyColorLow: '#540B0E',
-  frequencyColorMid: '#E36414',
-  frequencyColorHigh: '#FFBA08',
 })
 
-export const BAR_COLOR_PALETTE = Object.freeze([
-  '#3AB246',
-  '#6EDE8A',
-  '#C8C793',
-  '#68C5DB',
-  '#7572BB',
-  '#22153C',
-  '#890620',
-  '#D72E2E',
-])
-
-export const BAR_FREQUENCY_COLOR_PALETTES = Object.freeze({
-  warm: Object.freeze(['#540B0E', '#E36414', '#FFBA08']),
-  cool: Object.freeze(['#014F86', '#00B4D8', '#C0FDFF']),
-  green: Object.freeze(['#008000', '#70E000', '#CCFF33']),
-})
+// Keep these names for callers that already import the bar-specific exports.
+export const BAR_COLOR_PALETTE = VISUALIZATION_COLOR_PALETTE
+export const BAR_FREQUENCY_COLOR_PALETTES = FREQUENCY_COLOR_PALETTES
+export const BAR_COLOR_PARAMETER_DEFINITIONS = COLOR_PARAMETER_DEFINITIONS
 
 export const BAR_PARAMETER_DEFINITIONS = Object.freeze([
   {
-    id: 'color',
-    label: 'BAR COLOR',
-    type: 'palette-color',
-    palette: BAR_COLOR_PALETTE,
-    affects:
-      'Sets the solid color of the bars and peak caps. FREQUENCY GRADIENT replaces this color when enabled.',
-  },
-  {
-    id: 'frequencyColorGradient',
-    label: 'FREQUENCY GRADIENT',
+    id: 'showFrequencyRuler',
+    label: 'FREQUENCY RULER',
     type: 'boolean',
     affects:
-      'Colors low, middle, and high frequency bars differently instead of using one solid color. Bar heights do not change.',
-  },
-  {
-    id: 'frequencyColorPalette',
-    label: 'FREQUENCY PALETTE',
-    type: 'enum',
-    values: ['warm', 'cool', 'green', 'custom'],
-    labels: { custom: 'USER DEFINED' },
-    visibleWhen: { id: 'frequencyColorGradient', equals: true },
-    affects:
-      'Chooses the low-to-high color set used across the frequency bars. USER DEFINED reveals three editable colors.',
-  },
-  {
-    id: 'frequencyColorLow',
-    label: 'LOW COLOR',
-    type: 'color',
-    maxLength: 7,
-    visibleWhen: [
-      { id: 'frequencyColorGradient', equals: true },
-      { id: 'frequencyColorPalette', equals: 'custom' },
-    ],
-    affects:
-      'Sets the color used at the low-frequency end of the user-defined gradient. Colors between palette points are blended.',
-  },
-  {
-    id: 'frequencyColorMid',
-    label: 'MID COLOR',
-    type: 'color',
-    maxLength: 7,
-    visibleWhen: [
-      { id: 'frequencyColorGradient', equals: true },
-      { id: 'frequencyColorPalette', equals: 'custom' },
-    ],
-    affects:
-      'Sets the color used in the middle of the user-defined frequency gradient. Colors between palette points are blended.',
-  },
-  {
-    id: 'frequencyColorHigh',
-    label: 'HIGH COLOR',
-    type: 'color',
-    maxLength: 7,
-    visibleWhen: [
-      { id: 'frequencyColorGradient', equals: true },
-      { id: 'frequencyColorPalette', equals: 'custom' },
-    ],
-    affects:
-      'Sets the color used at the high-frequency end of the user-defined gradient. Colors between palette points are blended.',
+      'Shows logarithmic frequency markers above the bars so their horizontal positions can be read in hertz.',
   },
   {
     id: 'symmetry',

@@ -3,6 +3,7 @@ import {
   createPathfinderGrid,
   formatPathfinderGrid,
   growPathfinderGrid,
+  resizePathfinderGrid,
 } from '../../ascii/pathfinder.js'
 
 const FPS = 30
@@ -18,54 +19,104 @@ export function PathfinderBackground() {
     const layer = layerRef.current
     if (!layer) return undefined
 
-    let timer = 0
+    let animationTimer = 0
+    let resizeTimer = 0
     let cancelled = false
+    let columns = 0
+    let rows = 0
+    let grid = []
+    let renderedFrames = 0
 
-    const start = () => {
-      if (cancelled) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const interval = 1000 / (reduceMotion ? REDUCED_MOTION_FPS : FPS)
 
+    const measureGrid = () => {
       const style = window.getComputedStyle(layer)
       const canvas = document.createElement('canvas')
       const context = canvas.getContext('2d')
       context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
       const characterWidth = Math.max(1, context.measureText('━').width)
       const lineHeight = Number.parseFloat(style.lineHeight) || 12
-      const columns = Math.max(1, Math.floor(layer.clientWidth / characterWidth))
-      const rows = Math.max(1, Math.ceil(layer.clientHeight / lineHeight))
-      let grid = createPathfinderGrid(columns, rows, Math.random, SEED_DENSITY)
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      const interval = 1000 / (reduceMotion ? REDUCED_MOTION_FPS : FPS)
-      layer.textContent = formatPathfinderGrid(grid, columns, rows)
-      let renderedFrames = 0
-
-      const draw = () => {
-        if (cancelled) return
-        const result = growPathfinderGrid(
-          grid,
-          columns,
-          rows,
-          Math.random,
-          GROWTH_CHANCE,
-        )
-        grid = result.grid
-        renderedFrames += 1
-        layer.textContent = formatPathfinderGrid(grid, columns, rows)
-
-        if (result.active && renderedFrames < MAX_FRAMES) {
-          timer = window.setTimeout(draw, interval)
-        }
+      return {
+        columns: Math.max(1, Math.floor(layer.clientWidth / characterWidth)),
+        rows: Math.max(1, Math.ceil(layer.clientHeight / lineHeight)),
       }
-
-      timer = window.setTimeout(draw, interval)
     }
 
-    if (document.readyState === 'complete') start()
-    else window.addEventListener('load', start, { once: true })
+    const draw = () => {
+      if (cancelled) return
+      const result = growPathfinderGrid(
+        grid,
+        columns,
+        rows,
+        Math.random,
+        GROWTH_CHANCE,
+      )
+      grid = result.grid
+      renderedFrames += 1
+      layer.textContent = formatPathfinderGrid(grid, columns, rows)
+
+      if (result.active && renderedFrames < MAX_FRAMES) {
+        animationTimer = window.setTimeout(draw, interval)
+      }
+    }
+
+    const restartAnimation = () => {
+      window.clearTimeout(animationTimer)
+      renderedFrames = 0
+      layer.textContent = formatPathfinderGrid(grid, columns, rows)
+      animationTimer = window.setTimeout(draw, interval)
+    }
+
+    const start = () => {
+      if (cancelled) return
+      const measured = measureGrid()
+      columns = measured.columns
+      rows = measured.rows
+      grid = createPathfinderGrid(columns, rows, Math.random, SEED_DENSITY)
+      restartAnimation()
+    }
+
+    const resize = () => {
+      if (cancelled || grid.length === 0) return
+      const measured = measureGrid()
+      if (measured.columns === columns && measured.rows === rows) return
+
+      grid = resizePathfinderGrid(
+        grid,
+        columns,
+        rows,
+        measured.columns,
+        measured.rows,
+        Math.random,
+        SEED_DENSITY,
+      )
+      columns = measured.columns
+      rows = measured.rows
+      restartAnimation()
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      window.clearTimeout(resizeTimer)
+      // Keep the current animation running while divider movement settles.
+      // resize() restarts it only when the measured grid dimensions change.
+      resizeTimer = window.setTimeout(resize, 100)
+    })
+
+    const begin = () => {
+      start()
+      resizeObserver.observe(layer)
+    }
+
+    if (document.readyState === 'complete') begin()
+    else window.addEventListener('load', begin, { once: true })
 
     return () => {
       cancelled = true
-      window.removeEventListener('load', start)
-      window.clearTimeout(timer)
+      resizeObserver.disconnect()
+      window.removeEventListener('load', begin)
+      window.clearTimeout(animationTimer)
+      window.clearTimeout(resizeTimer)
     }
   }, [])
 

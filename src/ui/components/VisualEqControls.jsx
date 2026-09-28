@@ -30,6 +30,19 @@ export function VisualEqControls({ definitions, values, disabled = false, onChan
 
 function VerticalAsciiSlider({ definition, value, disabled, onChange }) {
   const inputId = useId()
+  const changeFromPointer = (event) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    // Match the centers of the ASCII rows instead of the native thumb size.
+    const endPadding = bounds.height / TRACK_SEGMENTS / 2
+    const ratio = Math.min(1, Math.max(0,
+      (event.clientY - bounds.top - endPadding) / (bounds.height - 2 * endPadding),
+    ))
+    const rawValue = definition.maximum - ratio * (definition.maximum - definition.minimum)
+    const steppedValue = definition.minimum + Math.round(
+      (rawValue - definition.minimum) / definition.step,
+    ) * definition.step
+    onChange(Math.min(definition.maximum, Math.max(definition.minimum, steppedValue)))
+  }
   const valueRatio = (definition.maximum - value) /
     (definition.maximum - definition.minimum)
   const thumbIndex = Math.round(valueRatio * (TRACK_SEGMENTS - 1))
@@ -85,6 +98,21 @@ function VerticalAsciiSlider({ definition, value, disabled, onChange }) {
           aria-label={`${formatFrequency(definition.frequencyHz)} gain`}
           aria-valuetext={`${formatGain(value)} decibels`}
           onChange={(event) => onChange(Number(event.target.value))}
+          onPointerDown={(event) => {
+            if (disabled || event.button !== 0) return
+            event.preventDefault()
+            event.currentTarget.focus()
+            event.currentTarget.setPointerCapture(event.pointerId)
+            changeFromPointer(event)
+          }}
+          onPointerMove={(event) => {
+            if (!disabled && event.currentTarget.hasPointerCapture(event.pointerId)) changeFromPointer(event)
+          }}
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
+          }}
         />
       </div>
 

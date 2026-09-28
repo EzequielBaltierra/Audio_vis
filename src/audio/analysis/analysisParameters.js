@@ -3,6 +3,8 @@ export const DEFAULT_ANALYSIS_PARAMETERS = Object.freeze({
   minDecibels: -100,
   maxDecibels: -20,
   smoothingTimeConstant: 0.72,
+  attackMs: 0,
+  releaseMs: 0,
   minFrequencyHz: 20,
   maxFrequencyHz: 20000,
   bandCount: 72,
@@ -10,6 +12,18 @@ export const DEFAULT_ANALYSIS_PARAMETERS = Object.freeze({
 })
 
 export const ANALYSIS_AGGREGATION_METHODS = Object.freeze(['peak', 'mean', 'rms'])
+
+export const BAND_COUNT_PARAMETER_DEFINITION = Object.freeze({
+  id: 'bandCount',
+  label: 'BANDS',
+  type: 'number',
+  minimum: 1,
+  maximum: 256,
+  step: 1,
+  presets: [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 48, 64, 68, 72, 80, 88, 96, 128, 192, 256],
+  affects:
+    'Sets how many frequency groups are sent to the active renderer. More bands show finer frequency detail and require more drawing work.',
+})
 
 export const ANALYSIS_PARAMETER_DEFINITIONS = Object.freeze([
   {
@@ -42,7 +56,7 @@ export const ANALYSIS_PARAMETER_DEFINITIONS = Object.freeze([
     presets: [-40, -30, -20, -12, -6, 0],
     unit: 'dBFS',
     affects:
-      'Sets the level that becomes maximum visual height. Lower values make bars reach full height more easily.',
+      'Sets the level that becomes maximum visual height. Lower values make the visualization reach full height more easily.',
   },
   {
     id: 'smoothingTimeConstant',
@@ -54,6 +68,30 @@ export const ANALYSIS_PARAMETER_DEFINITIONS = Object.freeze([
     presets: [0, 0.25, 0.5, 0.6, 0.65, 0.72, 0.75, 0.8, 0.85, 0.95, 0.99],
     affects:
       'Blends each frame with recent frames. Higher values make movement steadier and slower; lower values make it quicker and more responsive.',
+  },
+  {
+    id: 'attackMs',
+    label: 'VISUAL ATTACK',
+    type: 'number',
+    minimum: 0,
+    maximum: 2000,
+    step: 10,
+    presets: [0, 20, 50, 100, 200, 400, 750, 1000, 1500, 2000],
+    unit: 'ms',
+    affects:
+      'Sets how quickly bars and waves rise toward louder levels. Zero reacts immediately; higher values ease into peaks.',
+  },
+  {
+    id: 'releaseMs',
+    label: 'VISUAL RELEASE',
+    type: 'number',
+    minimum: 0,
+    maximum: 5000,
+    step: 10,
+    presets: [0, 50, 100, 200, 400, 750, 1000, 1500, 2500, 5000],
+    unit: 'ms',
+    affects:
+      'Sets how quickly bars and waves fall after energy drops. Zero falls immediately; higher values leave a longer visual tail.',
   },
   {
     id: 'minFrequencyHz',
@@ -80,17 +118,6 @@ export const ANALYSIS_PARAMETER_DEFINITIONS = Object.freeze([
       'Sets the highest frequency shown. Lowering it removes upper frequencies from the visualization without changing playback.',
   },
   {
-    id: 'bandCount',
-    label: 'BANDS',
-    type: 'number',
-    minimum: 8,
-    maximum: 256,
-    step: 8,
-    presets: [8, 16, 24, 32, 48, 64, 68, 72, 80, 88, 96, 128, 192, 256],
-    affects:
-      'Sets how many frequency groups are sent to the renderer. More bands create more detailed, narrower bars and require more drawing work.',
-  },
-  {
     id: 'aggregation',
     label: 'AGGREGATION',
     type: 'enum',
@@ -110,6 +137,8 @@ export function normalizeAnalysisParameters(parameters = {}) {
     minDecibels: Number(next.minDecibels),
     maxDecibels: Number(next.maxDecibels),
     smoothingTimeConstant: Number(next.smoothingTimeConstant),
+    attackMs: Number(next.attackMs),
+    releaseMs: Number(next.releaseMs),
     minFrequencyHz: Number(next.minFrequencyHz),
     maxFrequencyHz: maximumFrequency,
     bandCount: Number(next.bandCount),

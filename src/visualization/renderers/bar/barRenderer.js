@@ -1,8 +1,6 @@
 import { normalizeDecibels } from '../../../audio/analysis/spectrum.js'
-import {
-  BAR_FREQUENCY_COLOR_PALETTES,
-  DEFAULT_BAR_PARAMETERS,
-} from './barParameters.js'
+import { buildFrequencyColors } from '../../color/frequencyColors.js'
+import { DEFAULT_BAR_PARAMETERS } from './barParameters.js'
 
 export function createBarRenderer() {
   let peakLevels = []
@@ -100,7 +98,7 @@ export function createBarRenderer() {
   }
 
   function getBandColors(settings, bandCount) {
-    if (!settings.frequencyColorGradient) return null
+    if (settings.colorMode !== 'frequency') return null
 
     const signature = [
       bandCount,
@@ -111,13 +109,7 @@ export function createBarRenderer() {
     ].join('|')
     if (signature === cachedColorSignature) return cachedBandColors
 
-    const colors = getFrequencyPalette(settings)
-    cachedBandColors = Array.from({ length: bandCount }, (_, index) => {
-      const position = bandCount === 1 ? 0.5 : index / (bandCount - 1)
-      return position <= 0.5
-        ? interpolateHex(colors[0], colors[1], position * 2)
-        : interpolateHex(colors[1], colors[2], (position - 0.5) * 2)
-    })
+    cachedBandColors = buildFrequencyColors(settings, bandCount)
     cachedColorSignature = signature
     return cachedBandColors
   }
@@ -180,38 +172,6 @@ function drawPeakCaps({
   if (settings.symmetry) {
     context.fillRect(x, centerY + peakExtent - thickness, barWidth, thickness)
   }
-}
-
-function getFrequencyPalette(settings) {
-  return settings.frequencyColorPalette === 'custom'
-    ? [
-        normalizeHexColor(settings.frequencyColorLow, BAR_FREQUENCY_COLOR_PALETTES.warm[0]),
-        normalizeHexColor(settings.frequencyColorMid, BAR_FREQUENCY_COLOR_PALETTES.warm[1]),
-        normalizeHexColor(settings.frequencyColorHigh, BAR_FREQUENCY_COLOR_PALETTES.warm[2]),
-      ]
-    : BAR_FREQUENCY_COLOR_PALETTES[settings.frequencyColorPalette]
-      ?? BAR_FREQUENCY_COLOR_PALETTES.warm
-}
-
-function interpolateHex(startColor, endColor, amount) {
-  const start = parseHexColor(startColor)
-  const end = parseHexColor(endColor)
-  const channels = start.map((channel, index) => (
-    Math.round(channel + (end[index] - channel) * amount)
-  ))
-  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`.toUpperCase()
-}
-
-function normalizeHexColor(value, fallback) {
-  return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback
-}
-
-function parseHexColor(hexColor) {
-  return [
-    Number.parseInt(hexColor.slice(1, 3), 16),
-    Number.parseInt(hexColor.slice(3, 5), 16),
-    Number.parseInt(hexColor.slice(5, 7), 16),
-  ]
 }
 
 function setBarFillStyle(context, settings, color, y, height) {

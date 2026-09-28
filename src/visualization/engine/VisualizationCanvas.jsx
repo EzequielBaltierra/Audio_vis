@@ -25,6 +25,7 @@ export const VisualizationCanvas = forwardRef(function VisualizationCanvas(
 ) {
   const localRef = useRef(null)
   const activityRef = useRef({ isPlaying, reviewVisible })
+  const rendererParametersRef = useRef(rendererParameters)
   const wakeRendererRef = useRef(null)
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export const VisualizationCanvas = forwardRef(function VisualizationCanvas(
         frame,
         width: previewWidth,
         height: previewHeight,
-        rendererParameters,
+        rendererParameters: rendererParametersRef.current,
       })
     }
 
@@ -102,7 +103,7 @@ export const VisualizationCanvas = forwardRef(function VisualizationCanvas(
         frame,
         width: exportCanvas.width,
         height: exportCanvas.height,
-        rendererParameters,
+        rendererParameters: rendererParametersRef.current,
       })
 
       context.setTransform(previewScale, 0, 0, previewScale, 0, 0)
@@ -178,13 +179,17 @@ export const VisualizationCanvas = forwardRef(function VisualizationCanvas(
     outputParameters,
     onCaptureFrame,
     rendererId,
-    rendererParameters,
   ])
 
   useEffect(() => {
     activityRef.current = { isPlaying, reviewVisible }
     wakeRendererRef.current?.()
   }, [isPlaying, reviewVisible])
+
+  useEffect(() => {
+    rendererParametersRef.current = rendererParameters
+    wakeRendererRef.current?.()
+  }, [rendererParameters])
 
   return (
     <canvas

@@ -1,9 +1,10 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { AsciiDivider, AsciiRailDivider } from '../ascii/AsciiDivider.jsx'
 import { AsciiSelect } from '../ascii/AsciiSelect.jsx'
 import { RailScroller } from '../ascii/RailScroller.jsx'
 import {
   ANALYSIS_PARAMETER_DEFINITIONS,
+  BAND_COUNT_PARAMETER_DEFINITION,
   DEFAULT_ANALYSIS_PARAMETERS,
 } from '../audio/analysis/analysisParameters.js'
 import {
@@ -19,10 +20,15 @@ import {
 import { useCaptureWorkflow } from '../output/useCaptureWorkflow.js'
 import { AudioSourceControls } from '../ui/components/AudioSourceControls.jsx'
 import { CollapsibleParameterGroup } from '../ui/components/CollapsibleParameterGroup.jsx'
+import { ColorSectionSummary } from '../ui/components/ColorSectionSummary.jsx'
+import { FrequencyGradientControls } from '../ui/components/FrequencyGradientControls.jsx'
+import { FrequencyRuler } from '../ui/components/FrequencyRuler.jsx'
 import { ParameterControls } from '../ui/components/ParameterControls.jsx'
+import { SineWaveHandles } from '../ui/components/SineWaveHandles.jsx'
 import { TransportControls } from '../ui/components/TransportControls.jsx'
 import { VisualEqControls } from '../ui/components/VisualEqControls.jsx'
 import { PathfinderBackground } from '../ui/layout/PathfinderBackground.jsx'
+import { PanelDivider } from '../ui/layout/PanelDivider.jsx'
 import { VisualizationCanvas } from '../visualization/engine/VisualizationCanvas.jsx'
 import {
   getRendererDefinition,
@@ -34,12 +40,22 @@ const RENDERER_OPTIONS = listAvailableRenderers().map(({ id, label }) => ({
   value: id,
   label,
 }))
+const VISUAL_RESPONSE_PARAMETER_IDS = new Set(['attackMs', 'releaseMs'])
+const VISUAL_RESPONSE_PARAMETER_DEFINITIONS = ANALYSIS_PARAMETER_DEFINITIONS.filter(
+  ({ id }) => VISUAL_RESPONSE_PARAMETER_IDS.has(id),
+)
+const TECHNICAL_ANALYSIS_PARAMETER_DEFINITIONS = ANALYSIS_PARAMETER_DEFINITIONS.filter(
+  ({ id }) => !VISUAL_RESPONSE_PARAMETER_IDS.has(id),
+)
+const BAND_COUNT_PARAMETER_DEFINITIONS = [BAND_COUNT_PARAMETER_DEFINITION]
 
 export function AudioVisualizerPage() {
+  const [panelWidth, setPanelWidth] = useState(320)
   const [rendererId, setRendererId] = useState('')
   const [analysisParameters, setAnalysisParameters] = useState(DEFAULT_ANALYSIS_PARAMETERS)
   const [visualEqParameters, setVisualEqParameters] = useState(DEFAULT_VISUAL_EQ_PARAMETERS)
   const [rendererParameters, setRendererParameters] = useState({})
+  const [highlightedSineBand, setHighlightedSineBand] = useState(null)
   const [outputParameters, setOutputParameters] = useState(DEFAULT_OUTPUT_PARAMETERS)
   const [audioMuted, setAudioMuted] = useState(false)
   const [loopPlayback, setLoopPlayback] = useState(false)
@@ -84,6 +100,7 @@ export function AudioVisualizerPage() {
   const resetForSource = useCallback(() => {
     setRendererId('')
     setRendererParameters({})
+    setHighlightedSineBand(null)
     railScrollerRef.current?.scrollToRatio(0)
   }, [])
 
@@ -112,6 +129,11 @@ export function AudioVisualizerPage() {
     const definition = getRendererDefinition(nextRendererId)
     setRendererId(nextRendererId)
     setRendererParameters({ ...definition.defaultParameters })
+    setHighlightedSineBand(null)
+    setAnalysisParameters((current) => ({
+      ...current,
+      bandCount: nextRendererId === 'sine' ? 6 : DEFAULT_ANALYSIS_PARAMETERS.bandCount,
+    }))
   }
 
   const handleGlobalDrop = (event) => {
@@ -122,8 +144,33 @@ export function AudioVisualizerPage() {
   }
 
   const rendererDefinition = rendererId ? getRendererDefinition(rendererId) : null
+  const rendererParameterDefinitions = rendererDefinition?.parameterDefinitions ?? []
+  const timeSpanIndex = rendererParameterDefinitions.findIndex(({ id }) => id === 'timeSpanMs')
+  const rendererParametersBeforeResponse = timeSpanIndex >= 0
+    ? rendererParameterDefinitions.slice(0, timeSpanIndex + 1)
+    : []
+  const rendererParametersAfterResponse = timeSpanIndex >= 0
+    ? rendererParameterDefinitions.slice(timeSpanIndex + 1)
+    : rendererParameterDefinitions
   const hasSource = Boolean(source)
   const microphoneActive = source?.kind === 'microphone'
+  const sampleRate = audio.analyser?.context.sampleRate ?? 48_000
+  const visibleMaximumFrequency = Math.min(
+    analysisParameters.maxFrequencyHz,
+    sampleRate / 2,
+  )
+  const canvasRendererParameters = useMemo(() => (
+    rendererId === 'sine'
+      ? { ...rendererParameters, highlightedBandIndex: highlightedSineBand }
+      : rendererParameters
+  ), [highlightedSineBand, rendererId, rendererParameters])
+
+  const updateSineOffset = (bandIndex, offset) => {
+    setRendererParameters((current) => ({
+      ...current,
+      bandOffsets: { ...current.bandOffsets, [bandIndex]: offset },
+    }))
+  }
 
   const activeTransport = reviewUrl
     ? {
@@ -157,6 +204,7 @@ export function AudioVisualizerPage() {
   return (
     <main
       className={`app-shell ${draggingFile ? 'is-dragging-file' : ''}`}
+      style={{ '--panel-width': `${panelWidth}px` }}
       onDragEnter={(event) => {
         event.preventDefault()
         if (event.dataTransfer.types.includes('Files')) setDraggingFile(true)
@@ -167,7 +215,7 @@ export function AudioVisualizerPage() {
       }}
       onDrop={handleGlobalDrop}
     >
-      <aside className="control-rail" aria-label="Audio controls">
+      <aside id="audio-controls" className="control-rail" aria-label="Audio controls">
         <PathfinderBackground />
         <header className="rail-header">
           <h1 className="wordmark">
@@ -207,15 +255,61 @@ export function AudioVisualizerPage() {
               </section>
             ) : null}
 
+            {rendererDefinition?.colorParameterDefinitions ? (
+              <>
+                <AsciiDivider />
+                <CollapsibleParameterGroup
+                  key={`color-${rendererId}`}
+                  label="COLOR"
+                  ariaLabel="Visualization color parameters"
+                  collapsedSummary={<ColorSectionSummary parameters={rendererParameters} />}
+                >
+                  <ParameterControls
+                    definitions={rendererDefinition.colorParameterDefinitions}
+                    values={rendererParameters}
+                    disabled={captureActive}
+                    onChange={(id, value) => updateParameter(setRendererParameters, id, value)}
+                  />
+                  {rendererParameters.colorMode === 'frequency' &&
+                  rendererParameters.frequencyColorPalette === 'custom' ? (
+                    <FrequencyGradientControls
+                      values={rendererParameters}
+                      disabled={captureActive}
+                      onChange={(id, value) => updateParameter(setRendererParameters, id, value)}
+                    />
+                  ) : null}
+                </CollapsibleParameterGroup>
+              </>
+            ) : null}
+
             {rendererDefinition ? (
               <>
                 <AsciiDivider />
                 <CollapsibleParameterGroup
+                  key={`renderer-${rendererId}`}
                   label={`${rendererDefinition.label} RENDERER`}
                   ariaLabel={`${rendererDefinition.label} renderer parameters`}
                 >
                   <ParameterControls
-                    definitions={rendererDefinition.parameterDefinitions}
+                    definitions={BAND_COUNT_PARAMETER_DEFINITIONS}
+                    values={analysisParameters}
+                    disabled={captureActive}
+                    onChange={(id, value) => updateParameter(setAnalysisParameters, id, value)}
+                  />
+                  <ParameterControls
+                    definitions={rendererParametersBeforeResponse}
+                    values={rendererParameters}
+                    disabled={captureActive}
+                    onChange={(id, value) => updateParameter(setRendererParameters, id, value)}
+                  />
+                  <ParameterControls
+                    definitions={VISUAL_RESPONSE_PARAMETER_DEFINITIONS}
+                    values={analysisParameters}
+                    disabled={captureActive}
+                    onChange={(id, value) => updateParameter(setAnalysisParameters, id, value)}
+                  />
+                  <ParameterControls
+                    definitions={rendererParametersAfterResponse}
                     values={rendererParameters}
                     disabled={captureActive}
                     onChange={(id, value) => updateParameter(setRendererParameters, id, value)}
@@ -228,8 +322,10 @@ export function AudioVisualizerPage() {
               <>
                 <AsciiDivider />
                 <CollapsibleParameterGroup
+                  key={`visual-eq-${rendererId}`}
                   label="VISUAL EQ"
                   ariaLabel="Visual EQ parameters"
+                  defaultOpen={false}
                 >
                   <VisualEqControls
                     definitions={VISUAL_EQ_PARAMETER_DEFINITIONS}
@@ -245,12 +341,13 @@ export function AudioVisualizerPage() {
               <>
                 <AsciiDivider />
                 <CollapsibleParameterGroup
+                  key={`analysis-${rendererId}`}
                   label="ANALYSIS"
                   ariaLabel="Audio analysis parameters"
                   defaultOpen={false}
                 >
                   <ParameterControls
-                    definitions={ANALYSIS_PARAMETER_DEFINITIONS}
+                    definitions={TECHNICAL_ANALYSIS_PARAMETER_DEFINITIONS}
                     values={analysisParameters}
                     disabled={captureActive}
                     onChange={(id, value) => updateParameter(setAnalysisParameters, id, value)}
@@ -263,8 +360,10 @@ export function AudioVisualizerPage() {
               <>
                 <AsciiDivider />
                 <CollapsibleParameterGroup
+                  key={`output-${rendererId}`}
                   label="OUTPUT"
                   ariaLabel="Output parameters"
+                  defaultOpen={false}
                 >
                   <ParameterControls
                     definitions={OUTPUT_PARAMETER_DEFINITIONS}
@@ -277,13 +376,14 @@ export function AudioVisualizerPage() {
             ) : null}
           </div>
         </RailScroller>
+        <AsciiRailDivider
+          scrollMetrics={railScrollMetrics}
+          onScrollRatio={(ratio) => railScrollerRef.current?.scrollToRatio(ratio)}
+          onScrollKey={(key) => railScrollerRef.current?.handleKey(key)}
+        />
       </aside>
 
-      <AsciiRailDivider
-        scrollMetrics={railScrollMetrics}
-        onScrollRatio={(ratio) => railScrollerRef.current?.scrollToRatio(ratio)}
-        onScrollKey={(key) => railScrollerRef.current?.handleKey(key)}
-      />
+      <PanelDivider width={panelWidth} onChange={setPanelWidth} />
 
       <section className="visualizer-stage" aria-label="Audio visualization">
         {hasSource ? (
@@ -298,9 +398,29 @@ export function AudioVisualizerPage() {
                   onCaptureFrame={handleCaptureFrame}
                   rendererId={rendererId}
                   analysisParameters={analysisParameters}
-                  rendererParameters={rendererParameters}
+                  rendererParameters={canvasRendererParameters}
                   outputParameters={outputParameters}
                   reviewVisible={Boolean(reviewUrl)}
+                />
+              ) : null}
+              {rendererId === 'bar' && rendererParameters.showFrequencyRuler && !reviewUrl ? (
+                <FrequencyRuler
+                  minimumHz={analysisParameters.minFrequencyHz}
+                  maximumHz={visibleMaximumFrequency}
+                />
+              ) : null}
+              {rendererId === 'sine' &&
+              !rendererParameters.fixedPosition &&
+              rendererParameters.positionLayout === 'manual' &&
+              rendererParameters.showPositionHandles &&
+              !reviewUrl ? (
+                <SineWaveHandles
+                  analysisParameters={analysisParameters}
+                  sampleRate={sampleRate}
+                  offsets={rendererParameters.bandOffsets}
+                  disabled={captureActive}
+                  onOffsetChange={updateSineOffset}
+                  onHighlightChange={setHighlightedSineBand}
                 />
               ) : null}
               {reviewUrl ? (

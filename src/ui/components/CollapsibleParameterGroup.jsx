@@ -4,6 +4,7 @@ export function CollapsibleParameterGroup({
   label,
   ariaLabel,
   children,
+  collapsedSummary = null,
   defaultOpen = true,
 }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -18,6 +19,9 @@ export function CollapsibleParameterGroup({
       >
         <span aria-hidden="true">{open ? '[-]' : '[+]'}</span>
         <span>{label}</span>
+        {!open && collapsedSummary ? (
+          <span className="parameter-group-summary">{collapsedSummary}</span>
+        ) : null}
       </button>
       {open ? <div className="parameter-group-content">{children}</div> : null}
     </section>
