@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { subscribeMediaEvents } from './mediaEvents.js'
 import {
   DEFAULT_ANALYSIS_PARAMETERS,
   normalizeAnalysisParameters,
@@ -30,6 +31,7 @@ export function useAudioEngine({
   const mediaElementSourceRef = useRef(null)
   const microphoneStreamRef = useRef(null)
   const activeSourceNodeRef = useRef(null)
+  const activeSourceKindRef = useRef(null)
   const sourceRequestIdRef = useRef(0)
   const analysisParametersRef = useRef(normalizeAnalysisParameters(analysisParameters))
   const visualEqParametersRef = useRef(normalizeVisualEqParameters(visualEqParameters))
@@ -166,21 +168,14 @@ export function useAudioEngine({
       setStatus('error')
     }
 
-    audio.addEventListener('loadedmetadata', onLoadedMetadata)
-    audio.addEventListener('timeupdate', onTimeUpdate)
-    audio.addEventListener('play', onPlay)
-    audio.addEventListener('pause', onPause)
-    audio.addEventListener('ended', onEnded)
-    audio.addEventListener('error', onError)
-
-    return () => {
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata)
-      audio.removeEventListener('timeupdate', onTimeUpdate)
-      audio.removeEventListener('play', onPlay)
-      audio.removeEventListener('pause', onPause)
-      audio.removeEventListener('ended', onEnded)
-      audio.removeEventListener('error', onError)
-    }
+    return subscribeMediaEvents(audio, {
+      loadedmetadata: onLoadedMetadata,
+      timeupdate: onTimeUpdate,
+      play: onPlay,
+      pause: onPause,
+      ended: onEnded,
+      error: onError,
+    }, () => activeSourceKindRef.current === 'media')
   }, [])
 
   useEffect(
@@ -200,6 +195,7 @@ export function useAudioEngine({
       const audio = audioRef.current
       if (!audio) return false
 
+      activeSourceKindRef.current = 'media'
       audio.pause()
       stopMicrophone()
       if (objectUrlRef.current && objectUrlRef.current !== url) {
@@ -293,6 +289,9 @@ export function useAudioEngine({
         return false
       }
 
+      // pause() queues an event that can arrive after the microphone becomes live.
+      // Switch ownership first so the old player cannot throttle live rendering.
+      activeSourceKindRef.current = 'microphone'
       const audio = audioRef.current
       audio?.pause()
       if (audio) {
